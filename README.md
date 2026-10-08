@@ -1,4 +1,4 @@
-# Digitaler Leistungsantrag in der GKV – BPMN 2.0 \& Camunda 8
+# Digitaler Leistungsantrag in der GKV – BPMN 2.0 & Camunda 8
 
 <a href="https://www.credly.com/badges/6c178145-c9fc-41f1-8b55-721d4f2d8ac2/public_url">
   <img src="docs/badge-bpmn.png" alt="Camunda Knowledge – BPMN" width="140">
@@ -10,11 +10,11 @@ Portfolio-Projekt zur Analyse und Digitalisierung eines Leistungsantrags bei ein
 
 Leistungsanträge (z. B. häusliche Krankenpflege oder Hilfsmittel zur Krankenbehandlung) werden häufig noch teilweise papierbasiert und manuell bearbeitet. Gleichzeitig gelten gesetzliche Entscheidungsfristen mit harter Rechtsfolge:
 
-|Regel (§ 13 Abs. 3a SGB V)|Inhalt|
-|-|-|
-|Entscheidungsfrist|3 Wochen nach Antragseingang|
-|Mit Gutachten des Medizinischen Dienstes|5 Wochen – Versicherter muss darüber informiert werden|
-|Fristüberschreitung ohne Begründung|Leistung gilt als genehmigt (Genehmigungsfiktion)|
+| Regel (§ 13 Abs. 3a SGB V) | Inhalt |
+|---|---|
+| Entscheidungsfrist | 3 Wochen nach Antragseingang |
+| Mit Gutachten des Medizinischen Dienstes | 5 Wochen – Versicherter muss darüber informiert werden |
+| Fristüberschreitung ohne Begründung | Leistung gilt als genehmigt (Genehmigungsfiktion) |
 
 **Ziel:** Den Prozess so zu gestalten, dass Fristen automatisch überwacht, Routinefälle regelbasiert entschieden und Bescheide digital erzeugt werden.
 
@@ -22,12 +22,33 @@ Leistungsanträge (z. B. häusliche Krankenpflege oder Hilfsmittel zur Krankenbe
 
 ## Projektstufen
 
-|Stufe|Inhalt|Status|
-|-|-|-|
-|1. Ist/Soll|Ist-Prozess und digitaler Soll-Prozess als Collaboration (Versicherter, Krankenkasse, Medizinischer Dienst, Leistungserbringer)|🔄 in Arbeit|
-|2. Ausführbar|Camunda Forms für Antrag und Sachbearbeitung, DMN-Entscheidungstabelle („Gutachten erforderlich?“)|⏳ geplant|
-|3. Automatisiert|Fristüberwachung per Timer, Zwischenmitteilung, Nachforderung von Unterlagen, automatischer Bescheid|⏳ geplant|
-|4. Auswertung|Kennzahlen (Durchlaufzeit, Fristquote, Automatisierungsgrad) im Ist/Soll-Vergleich|⏳ geplant|
+| Stufe | Inhalt | Status |
+|---|---|---|
+| 1. Ist/Soll | Ist-Prozess und digitaler Soll-Prozess als Collaboration (Versicherter, Krankenkasse, Medizinischer Dienst) | 🔄 Ist-Prozess ✅ · Soll-Prozess in Arbeit |
+| 2. Ausführbar | Camunda Forms für Antrag und Sachbearbeitung, DMN-Entscheidungstabelle („Gutachten erforderlich?“) | ⏳ geplant |
+| 3. Automatisiert | Fristüberwachung per Timer, Zwischenmitteilung, Nachforderung von Unterlagen, automatischer Bescheid | ⏳ geplant |
+| 4. Auswertung | Kennzahlen (Durchlaufzeit, Fristquote, Automatisierungsgrad) im Ist/Soll-Vergleich | ⏳ geplant |
+
+## Ist-Prozess
+
+![Ist-Prozess Leistungsantrag](docs/ist-leistungsantrag.png)
+
+Modelldatei: [`models/ist-leistungsantrag.bpmn`](models/ist-leistungsantrag.bpmn)
+
+Der Ist-Prozess bildet eine typische, überwiegend manuelle Antragsbearbeitung ab: Der Antrag geht per Post ein, wird gescannt und in der Sachbearbeitung auf Vollständigkeit und Leistungsanspruch geprüft. Bei Bedarf wird ein Gutachten des Medizinischen Dienstes eingeholt, anschließend wird entschieden und ein Bescheid versendet.
+
+### Schwachstellenanalyse
+
+| # | Schwachstelle im Ist-Prozess | Folge | Ansatz im Soll-Prozess |
+|---|---|---|---|
+| 1 | Keine Überwachung der gesetzlichen Entscheidungsfrist | Fristüberschreitung bleibt unbemerkt → Risiko der Genehmigungsfiktion | Timer-Ereignisse für die 3- bzw. 5-Wochen-Frist mit Eskalation vor Ablauf |
+| 2 | Keine Zwischenmitteilung an den Versicherten bei Einschaltung des MD | Die verlängerte 5-Wochen-Frist greift nicht, es bleibt bei 3 Wochen | Automatische Zwischenmitteilung beim Gutachtenauftrag |
+| 3 | Unbegrenztes Warten auf nachgereichte Unterlagen und auf das Gutachten | Vorgänge bleiben ohne Reaktion liegen | Nicht unterbrechende Timer mit Erinnerung, Eskalation bei Überschreitung |
+| 4 | Medienbruch durch Papierantrag und Scannen – auch bei jeder Nachreichung | Zusätzlicher Aufwand und Liegezeit in der Poststelle | Digitaler Antrag über ein Online-Formular |
+| 5 | Manuelle Vollständigkeitsprüfung | Nachforderungen erst nach Sichtung, zusätzliche Schleifen | Pflichtfelder und Uploads im Formular, unvollständige Anträge werden direkt verhindert |
+| 6 | Manuelle Entscheidung, ob ein Gutachten erforderlich ist | Uneinheitliche Entscheidungen, Zeitverlust | Regelbasierte Entscheidung per DMN-Tabelle |
+| 7 | Übergaben zwischen Poststelle und Sachbearbeitung | Liegezeiten an jeder Übergabe | Digitaler Eingang direkt in die Aufgabenliste der Sachbearbeitung |
+| 8 | Bescheide werden manuell erstellt und versendet | Aufwand, Fehleranfälligkeit | Automatische Bescheiderstellung aus Vorlagen |
 
 ## Repository-Struktur
 
@@ -39,11 +60,10 @@ Leistungsanträge (z. B. häusliche Krankenpflege oder Hilfsmittel zur Krankenbe
 
 ## Technik
 
-* BPMN 2.0, DMN
-* Camunda 8 (Modeler, Forms, Zeebe Engine)
-* Lokale Ausführung über Docker Compose (Camunda 8 Self-Managed)
+- BPMN 2.0, DMN
+- Camunda 8 (Modeler, Forms, Zeebe Engine)
+- Lokale Ausführung über Docker Compose (Camunda 8 Self-Managed)
 
 ## Hinweis
 
 Fiktives Lernprojekt ohne echte Versichertendaten. Die rechtlichen Rahmenbedingungen dienen als fachliche Grundlage der Modellierung und stellen keine Rechtsberatung dar.
-
