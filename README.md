@@ -1,131 +1,76 @@
-# Digitaler Leistungsantrag in der GKV – BPMN 2.0 & Camunda 8
+# Digitaler Leistungsantrag in der GKV (BPMN 2.0 / Camunda 8)
 
 <a href="https://www.credly.com/badges/6c178145-c9fc-41f1-8b55-721d4f2d8ac2/public_url">
   <img src="docs/badge-bpmn.png" alt="Camunda Knowledge – BPMN" width="140">
 </a>
 
-Portfolio-Projekt zur Analyse und Digitalisierung eines Leistungsantrags bei einer gesetzlichen Krankenversicherung – vom manuellen Ist-Prozess über ein strategisches Zielbild bis zum operativen, für Camunda 8 vorbereiteten Soll-Prozess.
+In diesem Projekt habe ich mir angeschaut, wie ein Leistungsantrag bei einer Krankenkasse bearbeitet wird, und den Ablauf mit BPMN neu gedacht. Ausgangspunkt war die Frage, wie man so einen Prozess digitalisieren kann, ohne dass die Fachlichkeit auf der Strecke bleibt.
 
-## Ausgangslage
+Spannend fand ich vor allem die gesetzlichen Fristen. Nach § 13 Abs. 3a SGB V muss die Kasse innerhalb von drei Wochen entscheiden, mit Gutachten des Medizinischen Dienstes innerhalb von fünf. Wird die Frist ohne Begründung überschritten, gilt die Leistung als genehmigt. Ein Prozess, der Fristen nicht im Blick hat, ist hier also ein echtes Risiko.
 
-Leistungsanträge (z. B. häusliche Krankenpflege oder Hilfsmittel zur Krankenbehandlung) werden häufig noch teilweise papierbasiert und manuell bearbeitet. Gleichzeitig gelten gesetzliche Vorgaben mit harter Rechtsfolge:
+## Projektstand
 
-| Regel | Inhalt |
-|---|---|
-| Entscheidungsfrist (§ 13 Abs. 3a SGB V) | 3 Wochen nach Antragseingang |
-| Mit Gutachten des Medizinischen Dienstes | 5 Wochen – der Versicherte muss darüber informiert werden |
-| Fristüberschreitung ohne Begründung | Leistung gilt als genehmigt (Genehmigungsfiktion) |
-| Gutachtenpflicht (§ 275 Abs. 1 SGB V) | In gesetzlich bestimmten Fällen **oder** wenn es nach Art, Schwere, Dauer oder Häufigkeit der Erkrankung erforderlich ist |
-
-**Ziel:** Fristen automatisch überwachen, eindeutige Fälle regelbasiert vorentscheiden, Ermessensfälle gezielt der Sachbearbeitung vorlegen und Bescheide digital erzeugen.
-
-## Projektstufen
-
-| Stufe | Inhalt | Status |
-|---|---|---|
-| 1. Analyse & Konzept | Ist-Prozess mit Schwachstellenanalyse, strategisches Zielbild, operativer Soll-Prozess inkl. Fristenlogik | ✅ abgeschlossen |
-| 2. Ausführbar machen | Camunda 8 Run, Datenmodell, DMN-Tabelle, Camunda Forms, Nachrichten-Korrelation, Connectors | ⏳ geplant |
-| 3. Auswertung | Kennzahlen (Durchlaufzeit, Fristquote, Automatisierungsgrad) im Ist/Soll-Vergleich | ⏳ geplant |
+- [x] Ist-Prozess modelliert und Schwachstellen analysiert
+- [x] Soll-Prozess entworfen (strategisch und operativ)
+- [ ] Prozess in Camunda 8 ausführbar machen (Formulare, DMN, Nachrichten)
+- [ ] Kennzahlen im Ist/Soll-Vergleich auswerten
 
 ## Ist-Prozess
 
-![Ist-Prozess Leistungsantrag](docs/ist-leistungsantrag.png)
+![Ist-Prozess](docs/ist-leistungsantrag.png)
 
-Modelldatei: [`models/ist-leistungsantrag.bpmn`](models/ist-leistungsantrag.bpmn)
+So läuft die Bearbeitung typischerweise ab, wenn noch viel auf Papier passiert: Der Antrag kommt per Post, wird gescannt, geprüft, bei Bedarf geht er zum Medizinischen Dienst, dann wird entschieden.
 
-Der Ist-Prozess bildet eine typische, überwiegend manuelle Antragsbearbeitung ab: Der Antrag geht per Post ein, wird gescannt und in der Sachbearbeitung auf Vollständigkeit und Leistungsanspruch geprüft. Bei Bedarf wird ein Gutachten des Medizinischen Dienstes eingeholt, anschließend wird entschieden und ein Bescheid versendet.
+Beim Modellieren sind mir vor allem diese Punkte aufgefallen:
 
-### Schwachstellenanalyse
-
-| # | Schwachstelle im Ist-Prozess | Folge |
-|---|---|---|
-| 1 | Keine Überwachung der gesetzlichen Entscheidungsfrist | Fristüberschreitung bleibt unbemerkt → Risiko der Genehmigungsfiktion |
-| 2 | Keine Zwischenmitteilung an den Versicherten bei Einschaltung des MD | Die verlängerte 5-Wochen-Frist greift nicht, es bleibt bei 3 Wochen |
-| 3 | Unbegrenztes Warten auf nachgereichte Unterlagen und auf das Gutachten | Vorgänge bleiben ohne Reaktion liegen |
-| 4 | Medienbruch durch Papierantrag und Scannen – auch bei jeder Nachreichung | Zusätzlicher Aufwand und Liegezeit in der Poststelle |
-| 5 | Manuelle Vollständigkeitsprüfung | Nachforderungen erst nach Sichtung, zusätzliche Schleifen |
-| 6 | Uneinheitliche Entscheidung, ob ein Gutachten erforderlich ist | Pflichtfälle können übersehen werden, Zeitverlust |
-| 7 | Mehrere Übergaben zwischen Poststelle und Sachbearbeitung | Liegezeiten an jeder Übergabe |
-| 8 | Bescheide werden manuell erstellt und versendet | Aufwand, Fehleranfälligkeit |
+- Niemand überwacht die Entscheidungsfrist.
+- Wird der Medizinische Dienst eingeschaltet, erfährt der Versicherte davon nichts. Dadurch gilt eigentlich weiter die kürzere Frist.
+- Auf fehlende Unterlagen oder das Gutachten wird gewartet, ohne nachzuhaken.
+- Jede Nachreichung läuft wieder über Post und Scanner.
+- Ob ein Gutachten nötig ist, entscheidet jeder Sachbearbeiter für sich.
+- Bescheide werden von Hand erstellt.
 
 ## Soll-Prozess
 
-Der Soll-Prozess ist auf drei Abstraktionsebenen modelliert – jeweils passend zur Zielgruppe.
-
-### Ebene 0 – Strategisches Zielbild (Management)
+### Überblick
 
 ![Strategischer Prozess](docs/strategisch-leistungsantrag.png)
 
-Modelldatei: [`models/strategisch-leistungsantrag.bpmn`](models/strategisch-leistungsantrag.bpmn)
+Die grobe Sicht für alle, die nur wissen wollen, was passiert, nicht wie.
 
-Nur der Hauptablauf und die eine fachlich entscheidende Verzweigung (MD-Gutachten → Fristlänge). Keine Lanes, keine Aufgabentypen, keine Ausnahmepfade.
-
-### Ebene 1 – Operativer Prozess (Fachbereich & IT)
+### Detaillierter Ablauf
 
 ![Operativer Soll-Prozess](docs/soll-leistungsantrag.png)
 
-Modelldatei: [`models/soll-leistungsantrag.bpmn`](models/soll-leistungsantrag.bpmn) – Camunda-8-Diagramm, ohne Import-Warnungen
+Hier sieht man, wer was macht. Alles in der Lane „System“ übernimmt die Process Engine, Menschen kommen nur noch dort ins Spiel, wo wirklich eine fachliche Einschätzung gebraucht wird. Die beiden Kommunikationsschleifen (Unterlagen nachfordern, Gutachten einholen) habe ich in Unterprozesse ausgelagert, damit das Hauptmodell lesbar bleibt:
 
-Die Lane **System** enthält alle Schritte der Process Engine, **Sachbearbeitung** und **Teamleitung** nur noch Aufgaben, die fachliches Urteil erfordern. Wiederkehrende Kommunikationsschleifen sind in zugeklappte Unterprozesse gekapselt.
+![Unterlagen nachfordern](docs/soll-unterlagen-nachfordern.png)
 
-### Ebene 2 – Unterprozesse
+![MD-Gutachten einholen](docs/soll-gutachten-einholen.png)
 
-**Unterlagen nachfordern**
+### Was sich gegenüber dem Ist-Prozess ändert
 
-![Unterprozess Unterlagen nachfordern](docs/soll-unterlagen-nachfordern.png)
+| Problem im Ist-Prozess | Lösung im Soll-Prozess |
+|---|---|
+| Frist wird nicht überwacht | Ein Timer meldet sich vor Fristablauf, die Teamleitung priorisiert den Vorgang |
+| Versicherter wird bei MD-Gutachten nicht informiert | Direkt nach dem Gutachtenauftrag geht automatisch eine Information raus |
+| Warten ohne Nachhaken | Nach 14 bzw. 21 Tagen wird automatisch erinnert |
+| Post und Scannen | Der Antrag kommt digital rein |
+| Gutachtenbedarf uneinheitlich | Gesetzliche Pflichtfälle erkennt eine Entscheidungstabelle (DMN), alle anderen Fälle prüft weiterhin ein Sachbearbeiter |
+| Bescheide von Hand | Der Bescheid wird automatisch aus einer Vorlage erzeugt |
 
-**MD-Gutachten einholen**
+Eine Sache war mir beim Gutachten wichtig: Das System kann nur sicher sagen, wann ein Gutachten **gesetzlich vorgeschrieben** ist. Ob es darüber hinaus nötig ist (§ 275 Abs. 1 SGB V), ist eine Ermessensfrage. Deshalb entscheidet das System hier nie „kein Gutachten“, sondern legt diese Fälle dem Sachbearbeiter vor.
 
-![Unterprozess MD-Gutachten einholen](docs/soll-gutachten-einholen.png)
+Bewusst nicht modelliert habe ich das Widerspruchsverfahren und Hilfsmittel zum Behinderungsausgleich, für die eigene Fristen gelten.
 
-### Wie der Soll-Prozess die Schwachstellen löst
+## Dateien
 
-| # | Schwachstelle | Lösung im Modell |
-|---|---|---|
-| 1 | Keine Fristüberwachung | Ereignis-Unterprozess „Frist überwachen“ mit nicht unterbrechendem Timer-Start – die Teamleitung priorisiert vor Fristablauf |
-| 2 | Keine Zwischenmitteilung | Sendeaufgabe „Versicherten informieren“ unmittelbar nach dem Gutachtenauftrag |
-| 3 | Unbegrenztes Warten | Empfangsaufgaben mit nicht unterbrechenden Erinnerungs-Timern (14 bzw. 21 Tage) in beiden Unterprozessen |
-| 4 | Medienbruch | Digitaler Eingang über ein Nachrichten-Startereignis, die Poststelle entfällt |
-| 5 | Manuelle Vollständigkeitsprüfung | Das Online-Formular sichert die formale Vollständigkeit; die fachliche Prüfung bleibt in „Antrag prüfen“ |
-| 6 | Uneinheitliche Gutachtenentscheidung | DMN ermittelt gesetzliche Pflichtfälle; Ermessensfälle nach § 275 Abs. 1 SGB V prüft die Sachbearbeitung. Eine Schutzbedingung verhindert „kein Gutachten“ bei einem Pflichtfall |
-| 7 | Mehrfache Übergaben | Eine Benutzeraufgabe „Antrag prüfen“ bündelt Unterlagen- und Gutachtenprüfung |
-| 8 | Manuelle Bescheiderstellung | Eine Sendeaufgabe erzeugt den Bescheid aus der passenden Vorlage |
+| Datei | Inhalt |
+|---|---|
+| [`models/ist-leistungsantrag.bpmn`](models/ist-leistungsantrag.bpmn) | Ist-Prozess |
+| [`models/strategisch-leistungsantrag.bpmn`](models/strategisch-leistungsantrag.bpmn) | Strategischer Überblick |
+| [`models/soll-leistungsantrag.bpmn`](models/soll-leistungsantrag.bpmn) | Operativer Soll-Prozess (Camunda 8) |
 
-**Zusätzlich modelliert:** Antragsrücknahme durch den Versicherten (unterbrechender Ereignis-Unterprozess) und der Datenspeicher „Kernsystem (21c ng)“, aus dem die Prüfung liest und in den die Entscheidung schreibt.
+Die Modelle lassen sich mit dem Camunda Desktop Modeler öffnen.
 
-### Angewandte Modellierungsregeln
-
-- Aufgaben als Verb + Objekt, Ereignisse als Zustand, Gateways als Frage, verzweigende Pfade beschriftet
-- Explizite Zusammenführungen, keine kombinierten Split-/Merge-Gateways, keine impliziten Joins
-- Hauptfluss von links nach rechts ohne Kreuzungen von Sequenzflüssen
-- Externe Beteiligte als zugeklappte Pools, Kommunikation ausschließlich über Nachrichtenflüsse
-- Sprechende technische IDs ohne Umlaute, Gateway-Bedingungen bereits in FEEL hinterlegt
-
-### Nicht Teil des Modells
-
-- **Widerspruchsverfahren** – eigener, nachgelagerter Prozess
-- **Genehmigungsfiktion** – Rechtsfolge, kein Prozesspfad; die Fristüberwachung soll sie verhindern
-- **Versagung wegen fehlender Mitwirkung** (§ 66 SGB I)
-- **Hilfsmittel zum Behinderungsausgleich** – unterliegen § 18 SGB IX (2-Monats-Frist)
-- **Technische Umsetzung** der Sende- und Empfangsaufgaben – Inhalt von Stufe 2
-
-## Repository-Struktur
-
-```
-├── models/
-│   ├── ist-leistungsantrag.bpmn
-│   ├── strategisch-leistungsantrag.bpmn
-│   └── soll-leistungsantrag.bpmn
-├── docs/        Diagramm-Exporte und Badge
-└── README.md
-```
-
-## Technik
-
-- BPMN 2.0, DMN, FEEL
-- Camunda 8 (Desktop Modeler, Zeebe Engine, Tasklist, Operate)
-- Lokale Ausführung über Camunda 8 Run (Stufe 2)
-
-## Hinweis
-
-Fiktives Lernprojekt ohne echte Versichertendaten. Die rechtlichen Rahmenbedingungen dienen als fachliche Grundlage der Modellierung und stellen keine Rechtsberatung dar.
+*Fiktives Lernprojekt ohne echte Daten.*
