@@ -1,6 +1,6 @@
 # Digitaler Leistungsantrag in der GKV – BPMN 2.0 \& Camunda 8
 
-<a href="https://www.credly.com/badges/6c178145-c9fc-41f1-8b55-721d4f2d8ac2/public\_url">
+<a href="https://www.credly.com/badges/6c178145-c9fc-41f1-8b55-721d4f2d8ac2/public_url">
   <img src="docs/badge-bpmn.png" alt="Camunda Knowledge – BPMN" width="140">
 </a>
 
